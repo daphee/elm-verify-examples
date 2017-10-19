@@ -85,7 +85,7 @@ toTest index test =
             ++ "\" <|"
         )
     , indent 1 "\\() ->"
-    , indent 2 "Expect.equal"
+    , indent 2 test.expectationFunction
     , indent 3 "("
     ]
         ++ (List.map (indent 4) <| String.lines test.assertion)

@@ -11,6 +11,7 @@ type alias TestSuite =
 
 type alias Test =
     { assertion : String
+    , expectationFunction : String
     , expectation : String
     }
 
@@ -36,11 +37,13 @@ type alias Name =
 type Prefix
     = ArrowPrefix
     | ImportPrefix
+    | ExpectationFunctionPrefix
 
 
 type Ast
     = Assertion String
     | Expectation String
+    | ExpectationFunction String
     | Import String
     | LocalFunction String String
 
@@ -75,6 +78,16 @@ isExpectiation x =
             False
 
 
+isExpectationFunction : Ast -> Bool
+isExpectationFunction x =
+    case x of
+        ExpectationFunction _ ->
+            True
+
+        _ ->
+            False
+
+
 isLocalFunction : Ast -> Bool
 isLocalFunction x =
     case x of
@@ -98,6 +111,9 @@ astToString ast =
             str
 
         LocalFunction _ str ->
+            str
+
+        ExpectationFunction str ->
             str
 
 

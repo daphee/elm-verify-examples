@@ -25,25 +25,35 @@ astToTestSuite fnName ast =
         toTests : List Test -> List Ast -> List Test
         toTests acc xs =
             case xs of
-                -- Drop assertions without an expectation
-                (Assertion x) :: (Assertion y) :: rest ->
-                    toTests acc (Assertion y :: rest)
-
                 (Assertion x) :: (Expectation y) :: rest ->
                     toTests
                         ({ assertion = x
+                         , expectationFunction = "Expect.equal"
                          , expectation = y
                          }
                             :: acc
                         )
                         rest
 
-                _ ->
+                (Assertion x) :: (ExpectationFunction y) :: (Expectation z) :: rest ->
+                    toTests
+                        ({ assertion = x
+                         , expectationFunction = y
+                         , expectation = z
+                         }
+                            :: acc
+                        )
+                        rest
+
+                _ :: rest ->
+                    toTests acc rest
+
+                [] ->
                     acc
 
         tests =
             ast
-                |> List.filter (\a -> isAssertion a || isExpectiation a)
+                |> List.filter (\a -> isAssertion a || isExpectiation a || isExpectationFunction a)
                 |> toTests []
                 |> List.reverse
     in
@@ -132,6 +142,7 @@ toIntermediateAst =
         [ makeSyntaxRegex newLineRegex (\_ -> NewLine)
         , makeSyntaxRegex importRegex (Expression ImportPrefix)
         , makeSyntaxRegex expectationRegex (Expression ArrowPrefix)
+        , makeSyntaxRegex expectationFunctionRegex (Expression ExpectationFunctionPrefix)
         , makeSyntaxRegex localFunctionRegex toFunctionExpression
         , makeSyntaxRegex assertionRegex MaybeExpression
         ]
@@ -170,6 +181,10 @@ intermediateAstToAst xs =
                     Import (String.join "\n" <| x :: List.map intermediateToString rest)
                         |> Just
 
+                (Expression ExpectationFunctionPrefix x) :: rest ->
+                    ExpectationFunction (String.join "\n" <| x :: List.map intermediateToString rest)
+                        |> Just
+
                 (Func name x) :: rest ->
                     LocalFunction name (String.join "\n" <| x :: List.map intermediateToString rest)
                         |> Just
@@ -186,10 +201,16 @@ intermediateAstToAst xs =
                 ( NewLine, MaybeExpression _ ) ->
                     False
 
+                ( Expression ExpectationFunctionPrefix _, MaybeExpression _ ) ->
+                    False
+
                 ( _, MaybeExpression _ ) ->
                     True
 
                 ( Expression ArrowPrefix _, Expression ArrowPrefix _ ) ->
+                    True
+
+                ( Expression ExpectationFunctionPrefix _, Expression ExpectationFunctionPrefix _ ) ->
                     True
 
                 _ ->
@@ -238,6 +259,11 @@ expectationRegex =
 localFunctionRegex : Regex
 localFunctionRegex =
     Regex.regex "^\\s{4}(\\w+\\s:\\s.*)"
+
+
+expectationFunctionRegex : Regex
+expectationFunctionRegex =
+    Regex.regex "^\\s{4}\\|\\s(.*)"
 
 
 oneOf : List (a -> Maybe b) -> a -> Maybe b
